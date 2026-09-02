@@ -1,0 +1,4 @@
+# Working originals (HEICs, intermediates) — local only
+dev-assets/
+
+.DS_Store

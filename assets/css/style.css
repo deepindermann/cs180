@@ -1,0 +1,156 @@
+/* CS180 project site — shared styles */
+
+:root {
+  --bg: #ffffff;
+  --fg: #202124;
+  --muted: #6f7378;
+  --rule: #e3e5e8;
+  --hover: #f5f6f8;
+  --link: #1a56b0;
+  --max: 42rem;
+  --serif: Charter, "Bitstream Charter", "Sitka Text", Cambria, Georgia, serif;
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17.5px/1.6 var(--serif);
+}
+
+.wrap {
+  max-width: var(--max);
+  margin: 0 auto;
+  padding: 3.5rem 1.25rem 5rem;
+}
+
+a { color: var(--link); }
+a:hover { text-decoration: none; }
+
+h1, h2, h3 { line-height: 1.25; font-weight: 700; }
+
+h1 { font-size: 1.75rem; margin: 0 0 0.35rem; }
+h2 { font-size: 1.15rem; margin: 2.75rem 0 0.75rem; }
+h3 { font-size: 1rem; margin: 1.75rem 0 0.5rem; }
+
+.subtitle {
+  color: var(--muted);
+  margin: 0 0 2.5rem;
+  font-size: 1.05rem;
+}
+
+.meta {
+  font-size: 0.82rem;
+  letter-spacing: 0.03em;
+  font-variant: small-caps;
+  color: var(--muted);
+  margin: 0 0 0.4rem;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 2rem;
+  font-size: 0.875rem;
+  text-decoration: none;
+}
+.back:hover { text-decoration: underline; }
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 2.5rem 0;
+}
+
+/* Project index list */
+.projects { list-style: none; padding: 0; margin: 0; }
+
+.projects li { border-top: 1px solid var(--rule); }
+.projects li:last-child { border-bottom: 1px solid var(--rule); }
+
+.projects a {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+  padding: 1.1rem 0.5rem;
+  text-decoration: none;
+  color: inherit;
+}
+.projects a:hover { background: var(--hover); }
+
+.projects .num {
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 4.5rem;
+}
+
+.projects .name { font-weight: 600; color: var(--link); }
+.projects .desc {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* Figures */
+figure { margin: 1.5rem 0; }
+
+figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+}
+
+figcaption {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-top: 0.5rem;
+}
+
+.grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 1rem;
+}
+.grid figure { margin: 0; min-width: 0; }
+
+/* Stack on narrow screens, where a row of three would be unreadable */
+@media (max-width: 34rem) {
+  .grid {
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+  }
+}
+
+/* Placeholder box for un-filled figures */
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  border: 1px dashed var(--rule);
+  border-radius: 3px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.todo { color: var(--muted); font-style: italic; }
+
+footer {
+  margin-top: 4rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+@media print {
+  .back { display: none; }
+}
