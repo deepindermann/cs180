@@ -98,7 +98,8 @@ hr {
 /* Figures */
 figure { margin: 1.5rem 0; }
 
-figure img {
+figure img,
+.grid img {
   width: 100%;
   height: auto;
   display: block;
@@ -118,7 +119,7 @@ figcaption {
   grid-auto-columns: 1fr;
   gap: 1rem;
 }
-.grid figure { margin: 0; min-width: 0; }
+.grid > * { min-width: 0; }
 
 /* Stack on narrow screens, where a row of three would be unreadable */
 @media (max-width: 34rem) {
