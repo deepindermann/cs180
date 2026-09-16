@@ -3,8 +3,66 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Project 1 — Project 1 | CS180</title>
+<title>Project 1 — Colorizing the Prokudin-Gorskii Photo Collection | CS180</title>
 <link rel="stylesheet" href="../assets/css/style.css?v=2">
+<style>
+  /* Page-scoped additions: the shared sheet has no table or wrapping-gallery styles. */
+
+  /* This write-up carries wide tables and an 18-image gallery, so it needs more
+     room than the 42rem the shared sheet uses for prose-only pages. */
+  .wrap { max-width: 64rem; }
+  /* Keep running text at a comfortable measure even though the page is wider. */
+  .wrap > p, .wrap > h2, .wrap > h3 { max-width: 42rem; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin: 1.25rem 0 1.75rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+    font-variant: small-caps;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  td.num { font-variant-numeric: tabular-nums; }
+  caption {
+    caption-side: bottom;
+    text-align: left;
+    font-size: 0.875rem;
+    color: var(--muted);
+    padding-top: 0.5rem;
+  }
+
+  /* Many-image gallery: three per row and wrapping, where .grid would put
+     everything in one row. Matches the width of the three-up .grid sections. */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem 1rem;
+  }
+  .gallery figure { margin: 0; }
+  .gallery figcaption { font-size: 0.875rem; margin-top: 0.5rem; }
+
+  /* Stack on narrow screens, as the shared sheet does for .grid. */
+  @media (max-width: 34rem) {
+    .gallery { grid-template-columns: 1fr; }
+  }
+
+  /* Displacement vectors shown under each image. */
+  .off {
+    display: block;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -12,39 +70,215 @@
   <a class="back" href="../index.html">&larr; All projects</a>
 
   <p class="meta">CS180 &middot; Project 1</p>
-  <h1>Project 1</h1>
-  <p class="subtitle">One-line summary of what this project does.</p>
+  <h1>Colorizing the Prokudin-Gorskii Photo Collection</h1>
+  <p class="subtitle todo">One-line summary of what this project does.</p>
 
   <h2>Overview</h2>
-  <p class="todo">Brief description of the problem and approach.</p>
+  <p class="todo">
+    Who Prokudin-Gorskii was, what the glass plate negatives are, and what the program
+    has to do: split the plate into three channels, align them, stack them into RGB.
+  </p>
+
+  <div class="grid">
+    <figure>
+      <div class="placeholder">input plate</div>
+      <figcaption class="todo">The digitized glass plate: three exposures stacked B, G, R.</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj1/cathedral.jpg" alt="Cathedral, aligned color composite">
+      <figcaption class="todo">The same plate after alignment.</figcaption>
+    </figure>
+  </div>
 
   <h2>Approach</h2>
-  <p class="todo">Write-up goes here.</p>
+
+  <h3>Splitting the plate</h3>
+  <p class="todo">
+    Equal thirds, top to bottom, in BGR order. Note the plate height isn't always
+    divisible by three.
+  </p>
+
+  <h3>Scoring a candidate displacement</h3>
+  <p class="todo">
+    Exhaustive search over a window of displacements; <code>np.roll</code> to shift.
+    Define L2 and NCC, and say which you use where and why.
+  </p>
+
+  <h3>Ignoring the borders</h3>
+  <p class="todo">
+    Why the film borders wreck the score: they're brighter than the interior in all three
+    channels and differ between them, so they dominate the metric no matter the shift.
+    Scoring on the central portion fixes it. Include the measured before/after.
+  </p>
 
   <div class="grid">
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <div class="placeholder">no border crop</div>
+      <figcaption class="todo">Scoring the full frame &mdash; offsets (1,&nbsp;&minus;1) and (7,&nbsp;&minus;1).</figcaption>
     </figure>
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <img src="../assets/proj1/cathedral.jpg" alt="Cathedral aligned with border cropping">
+      <figcaption class="todo">Scoring the interior only &mdash; offsets (2,&nbsp;5) and (3,&nbsp;12).</figcaption>
     </figure>
   </div>
 
-  <h2>Results</h2>
-  <p class="todo">Write-up goes here.</p>
+  <h3>Coarse-to-fine pyramid</h3>
+  <p class="todo">
+    Why exhaustive search fails on the full-size scans: displacements reach ~180&nbsp;px,
+    so the window would have to be enormous. Recursion: shrink by 2 until the image is
+    small, search wide once, then double the estimate and refine by a couple of pixels
+    at each level on the way back up. Mention blurring before subsampling.
+  </p>
+
+  <table>
+    <caption class="todo">Worked example: red vs. blue on cathedral, three levels.</caption>
+    <thead>
+      <tr><th>Level</th><th>Image size</th><th>Step</th><th>Offset (x,&nbsp;y)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="num">1/4</td><td class="num">86 &times; 98</td><td>wide &plusmn;15 search</td><td class="num">(1, 3)</td></tr>
+      <tr><td class="num">1/2</td><td class="num">171 &times; 195</td><td>double, then refine (0,&nbsp;0)</td><td class="num">(2, 6)</td></tr>
+      <tr><td class="num">1/1</td><td class="num">341 &times; 390</td><td>double, then refine (&minus;1,&nbsp;0)</td><td class="num">(3, 12)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Results: single-scale</h2>
+  <p class="todo">
+    Exhaustive search on the low-resolution JPEGs. Note the runtime and the window used.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Image</th><th>Green (x,&nbsp;y)</th><th>Red (x,&nbsp;y)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>cathedral</td><td class="num">(2, 5)</td><td class="num">(3, 12)</td></tr>
+      <tr><td>monastery</td><td class="num">(2, &minus;3)</td><td class="num">(2, 3)</td></tr>
+      <tr><td>tobolsk</td><td class="num">(3, 3)</td><td class="num">(3, 6)</td></tr>
+    </tbody>
+  </table>
 
   <div class="grid">
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <img src="../assets/proj1/cathedral.jpg" alt="Cathedral">
+      <figcaption>cathedral<span class="off">G (2, 5) &middot; R (3, 12)</span></figcaption>
     </figure>
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <img src="../assets/proj1/monastery.jpg" alt="Monastery">
+      <figcaption>monastery<span class="off">G (2, &minus;3) &middot; R (2, 3)</span></figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj1/tobolsk.jpg" alt="Tobolsk">
+      <figcaption>tobolsk<span class="off">G (3, 3) &middot; R (3, 6)</span></figcaption>
     </figure>
   </div>
+
+  <h2>Results: pyramid on the full-size plates</h2>
+  <p class="todo">
+    All fourteen provided images. Note the runtime per image and how it compares to
+    single-scale at full resolution.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Image</th><th>Green (x,&nbsp;y)</th><th>Red (x,&nbsp;y)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>cathedral</td><td class="num">(2, 5)</td><td class="num">(3, 12)</td></tr>
+      <tr><td>church</td><td class="num">(4, 25)</td><td class="num">(&minus;4, 58)</td></tr>
+      <tr><td>emir</td><td class="num">(24, 49)</td><td class="num">(41, 106)</td></tr>
+      <tr><td>harvesters</td><td class="num">(17, 60)</td><td class="num">(14, 124)</td></tr>
+      <tr><td>icon</td><td class="num">(17, 41)</td><td class="num">(23, 89)</td></tr>
+      <tr><td>ilemselga</td><td class="num">(7, 40)</td><td class="num">(11, 130)</td></tr>
+      <tr><td>melons</td><td class="num">(10, 81)</td><td class="num">(14, 178)</td></tr>
+      <tr><td>monastery</td><td class="num">(2, &minus;3)</td><td class="num">(2, 3)</td></tr>
+      <tr><td>religous_painting</td><td class="num">(3, 28)</td><td class="num">(7, 68)</td></tr>
+      <tr><td>self_portrait</td><td class="num">(29, 79)</td><td class="num">(37, 176)</td></tr>
+      <tr><td>siren</td><td class="num">(&minus;6, 49)</td><td class="num">(&minus;25, 96)</td></tr>
+      <tr><td>three_generations</td><td class="num">(14, 52)</td><td class="num">(11, 111)</td></tr>
+      <tr><td>tobolsk</td><td class="num">(3, 3)</td><td class="num">(3, 6)</td></tr>
+      <tr><td>wharf</td><td class="num">(&minus;7, 15)</td><td class="num">(&minus;16, 82)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="gallery">
+    <figure><img src="../assets/proj1/cathedral.jpg" alt="Cathedral"><figcaption>cathedral<span class="off">G (2, 5) &middot; R (3, 12)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/church.jpg" alt="Church"><figcaption>church<span class="off">G (4, 25) &middot; R (&minus;4, 58)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/emir.jpg" alt="Emir of Bukhara"><figcaption>emir<span class="off">G (24, 49) &middot; R (41, 106)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/harvesters.jpg" alt="Harvesters"><figcaption>harvesters<span class="off">G (17, 60) &middot; R (14, 124)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/icon.jpg" alt="Icon"><figcaption>icon<span class="off">G (17, 41) &middot; R (23, 89)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/ilemselga.jpg" alt="Ilemselga"><figcaption>ilemselga<span class="off">G (7, 40) &middot; R (11, 130)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/melons.jpg" alt="Melons"><figcaption>melons<span class="off">G (10, 81) &middot; R (14, 178)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/monastery.jpg" alt="Monastery"><figcaption>monastery<span class="off">G (2, &minus;3) &middot; R (2, 3)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/religous_painting.jpg" alt="Religious painting"><figcaption>religous_painting<span class="off">G (3, 28) &middot; R (7, 68)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/self_portrait.jpg" alt="Self portrait"><figcaption>self_portrait<span class="off">G (29, 79) &middot; R (37, 176)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/siren.jpg" alt="Siren"><figcaption>siren<span class="off">G (&minus;6, 49) &middot; R (&minus;25, 96)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/three_generations.jpg" alt="Three generations"><figcaption>three_generations<span class="off">G (14, 52) &middot; R (11, 111)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/tobolsk.jpg" alt="Tobolsk"><figcaption>tobolsk<span class="off">G (3, 3) &middot; R (3, 6)</span></figcaption></figure>
+    <figure><img src="../assets/proj1/wharf.jpg" alt="Wharf"><figcaption>wharf<span class="off">G (&minus;7, 15) &middot; R (&minus;16, 82)</span></figcaption></figure>
+  </div>
+
+  <h2>Results: my own selections</h2>
+  <p class="todo">
+    Three plates chosen from the Library of Congress collection. Say why you picked
+    them and link back to their catalogue pages.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Image</th><th>Green (x,&nbsp;y)</th><th>Red (x,&nbsp;y)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>napoleon</td><td class="num">(5, 63)</td><td class="num">(&minus;2, 133)</td></tr>
+      <tr><td>ordezh_river</td><td class="num">(&minus;1, 39)</td><td class="num">(&minus;7, 151)</td></tr>
+      <tr><td>peonies</td><td class="num">(3, 51)</td><td class="num">(&minus;6, 104)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="grid">
+    <figure>
+      <img src="../assets/proj1/napoleon.jpg" alt="Portrait of Napoleon">
+      <figcaption class="todo">napoleon &mdash; the diagonal marks are scratches on the original plate.<span class="off">G (5, 63) &middot; R (&minus;2, 133)</span></figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj1/ordezh_river.jpg" alt="Ordezh river">
+      <figcaption>ordezh_river<span class="off">G (&minus;1, 39) &middot; R (&minus;7, 151)</span></figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj1/peonies.jpg" alt="Peonies">
+      <figcaption>peonies<span class="off">G (3, 51) &middot; R (&minus;6, 104)</span></figcaption>
+    </figure>
+  </div>
+
+  <h2>The hard case: Emir of Bukhara</h2>
+  <p class="todo">
+    What went wrong: the emir's robe is bright blue, so it is bright in the blue plate and
+    dark in the red one. Correlating raw intensities can't match content whose brightness
+    is inverted &mdash; NCC scored &minus;0.23 on his red channel against &minus;0.63 or better on
+    every other plate.
+  </p>
+
+  <div class="grid">
+    <figure>
+      <img src="../assets/proj1/emir_bad.jpg" alt="Emir, misaligned">
+      <figcaption class="todo">Aligning red directly to blue.<span class="off">G (24, 49) &middot; R (&minus;482, 400)</span></figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj1/emir.jpg" alt="Emir, aligned">
+      <figcaption class="todo">Aligning red to the already-aligned green.<span class="off">G (24, 49) &middot; R (41, 106)</span></figcaption>
+    </figure>
+  </div>
+
+  <p class="todo">
+    The fix and why it works: green sits between red and blue in the spectrum, so the red
+    and green plates resemble each other far more. Since the green channel has already been
+    moved into blue's frame, anything aligned to it is aligned to blue too.
+  </p>
+
+  <h2>Implementation notes</h2>
+  <p class="todo">
+    Hyperparameters, runtime, what you'd do differently. Anything you tried that didn't work.
+  </p>
 
   <h2>What I learned</h2>
   <p class="todo">Takeaways, surprises, and what I'd try next.</p>
