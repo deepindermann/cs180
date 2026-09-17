@@ -11,13 +11,15 @@
   /* This write-up carries wide tables and an 18-image gallery, so it needs more
      room than the 42rem the shared sheet uses for prose-only pages. */
   .wrap { max-width: 64rem; }
-  /* Keep running text at a comfortable measure even though the page is wider. */
-  .wrap > p, .wrap > h2, .wrap > h3 { max-width: 42rem; }
+  /* Keep running text at a comfortable measure even though the page is wider,
+     and centre that column so it sits under the middle of the images rather
+     than hugging the left edge. Text itself stays left-aligned. */
+  .wrap > p, .wrap > h2, .wrap > h3, table, caption { max-width: 42rem; margin-inline: auto; }
   table {
     width: 100%;
     border-collapse: collapse;
     font-size: 0.9rem;
-    margin: 1.25rem 0 1.75rem;
+    margin: 1.25rem auto 1.75rem;
   }
   th, td {
     text-align: left;
@@ -33,11 +35,11 @@
   }
   td.num { font-variant-numeric: tabular-nums; }
   caption {
-    caption-side: bottom;
+    caption-side: top;
     text-align: left;
     font-size: 0.875rem;
     color: var(--muted);
-    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
   }
 
   /* Many-image gallery: three per row and wrapping, where .grid would put
@@ -53,7 +55,27 @@
   /* Stack on narrow screens, as the shared sheet does for .grid. */
   @media (max-width: 34rem) {
     .gallery { grid-template-columns: 1fr; }
+    .plate-pair { grid-template-columns: 1fr; }
   }
+
+  /* The raw plate is 3x taller than it is wide. Rather than shrinking the image
+     inside an equal column (which strands whitespace beside it and leaves the
+     caption wider than the picture), give it a column a third the width: the
+     plate then renders 1 x 2.626 against the composite's 3 x 0.874, i.e. the
+     same height, with captions matching their images. */
+  .plate-pair { grid-template-columns: 1fr 3fr; align-items: start; }
+
+  /* Even out the space around image blocks. By default the gap below a set was
+     the figure's own bottom margin plus the next heading's 2.75rem top margin,
+     while the gap above was only the paragraph's margin, so text sat tight
+     against the images below it and far from the ones above. */
+  .grid, .gallery { margin: 1.75rem auto 1.25rem; }
+  .grid > figure, .gallery > figure { margin: 0; }
+
+  /* Two-up comparison pairs. At the full 64rem these render much larger than the
+     three-up sets and overpower the surrounding text, so give them their own
+     narrower measure. */
+  .pair { max-width: 48rem; margin-inline: auto; }
 
   /* Displacement vectors shown under each image. */
   .off {
@@ -71,18 +93,29 @@
 
   <p class="meta">CS180 &middot; Project 1</p>
   <h1>Colorizing the Prokudin-Gorskii Photo Collection</h1>
-  <p class="subtitle todo">One-line summary of what this project does.</p>
+  <p class="subtitle">Aligning glass plate negatives into color images</p>
 
   <h2>Overview</h2>
-  <p class="todo">
-    Who Prokudin-Gorskii was, what the glass plate negatives are, and what the program
-    has to do: split the plate into three channels, align them, stack them into RGB.
+  <p>
+    In 1907, a series of photographs of the Russian empire were taken, by Sergey Prokudin-Gorsky. These were before
+    color film became practical; his method was to shoot every single scene three times in
+    very quick succession into three different-colored filters: red, green, and blue. He
+    recorded them all onto one glass plate. However, since he never could print them
+    himself, they ended up in the Library of Congress until later being digitized.
   </p>
 
-  <div class="grid">
+  <p>
+    The core problem with these images is that you cannot simply stack them on top of each
+    other to get the original image. The alignment is not perfect due to small perturbations
+    in the camera, so all 3 channels were offset of each other from just a few pixels to
+    hundreds of pixels. The goal of this project is to fine these offsets and optimally
+    stack the channels into a single color image.
+  </p>
+
+  <div class="grid plate-pair pair">
     <figure>
-      <div class="placeholder">input plate</div>
-      <figcaption class="todo">The digitized glass plate: three exposures stacked B, G, R.</figcaption>
+      <img src="../assets/proj1/cathedral_plate.jpg" alt="Raw cathedral glass plate: three grayscale exposures stacked vertically">
+      <figcaption>The digitized plate: three exposures of the same scene in blue, green, and red filters.</figcaption>
     </figure>
     <figure>
       <img src="../assets/proj1/cathedral.jpg" alt="Cathedral, aligned color composite">
@@ -93,45 +126,101 @@
   <h2>Approach</h2>
 
   <h3>Splitting the plate</h3>
-  <p class="todo">
-    Equal thirds, top to bottom, in BGR order. Note the plate height isn't always
-    divisible by three.
+  <p>
+    First, we split every single plate into three equal parts, in the order blue, green,
+    and red. I then convert everything to floating-point pixel 2d-arrays.
   </p>
 
-  <h3>Scoring a candidate displacement</h3>
-  <p class="todo">
-    Exhaustive search over a window of displacements; <code>np.roll</code> to shift.
-    Define L2 and NCC, and say which you use where and why.
+  <h3>Base alignment process</h3>
+  <p>
+    The most basic alignment process to use is a search over some range; we shift one of the
+    channels (red, green) over the blue channel by certain x-y offsets, and keep the offset
+    which has the best score. <code>np.roll</code> was a convenient function for this.
   </p>
 
-  <h3>Ignoring the borders</h3>
-  <p class="todo">
-    Why the film borders wreck the score: they're brighter than the interior in all three
-    channels and differ between them, so they dominate the metric no matter the shift.
-    Scoring on the central portion fixes it. Include the measured before/after.
+  <p>
+    There are two core scoring functions that I tried: L2 norm and NCC. The L2 norm is very
+    typical: you take the error between two corresponding pixels, square it, and sum this
+    over the entire image. NCC (normalized cross-correlation) first subtracts the mean from every
+    single image, normalizes the image to unit length (treat it like a vector here) and
+    then takes their dot product (treat it like a vector here as well). NCC generally ignores
+    the overall brightness (ignores magnitude) and instead looks at the actual
+    &ldquo;directional&rdquo; discrepancy. I found using NCC to be an important choice for
+    the later image pyramid alignments.
   </p>
 
-  <div class="grid">
+  <h3>Issues with the borders</h3>
+  <p>
+    Another important detail in finding the alignment offsets was removing the borders from
+    the images when scoring different alignment setups. As you can see in the plate earlier,
+    the borders have a strip of film around the edge, which is very bright and overwhelms
+    the photograph itself; it's additionally very variable across channels. The border will
+    thus always be mismatched and ends up dominating the score, and the algorithm ends up
+    just finding an alignment that minimizes error on the borders more so than the entire
+    image.
+  </p>
+
+  <p>
+    I thus computed the metrics only on the center of the images (aka slicing off the
+    border). I trimmed about 15% off of each side before scoring it (though, note that the
+    full image is still getting shifted and saved; this is only for scoring). The alignment
+    numbers seemed pretty insensitive to the exact amount that I trimmed ranging from 10 to
+    20%.
+  </p>
+
+  <div class="grid pair">
     <figure>
-      <div class="placeholder">no border crop</div>
-      <figcaption class="todo">Scoring the full frame &mdash; offsets (1,&nbsp;&minus;1) and (7,&nbsp;&minus;1).</figcaption>
+      <img src="../assets/proj1/cathedral_nocrop.jpg" alt="Cathedral aligned without border cropping">
+      <figcaption>Scoring applied on the full frame: offsets come out as (&minus;1,&nbsp;1) and (&minus;1,&nbsp;7).</figcaption>
     </figure>
     <figure>
       <img src="../assets/proj1/cathedral.jpg" alt="Cathedral aligned with border cropping">
-      <figcaption class="todo">Scoring the interior only &mdash; offsets (2,&nbsp;5) and (3,&nbsp;12).</figcaption>
+      <figcaption>Scoring applied on the central 70%: offsets come out as (2,&nbsp;5) and (3,&nbsp;12), and the weird coloring effects disappear.</figcaption>
     </figure>
   </div>
 
   <h3>Coarse-to-fine pyramid</h3>
-  <p class="todo">
-    Why exhaustive search fails on the full-size scans: displacements reach ~180&nbsp;px,
-    so the window would have to be enormous. Recursion: shrink by 2 until the image is
-    small, search wide once, then double the estimate and refine by a couple of pixels
-    at each level on the way back up. Mention blurring before subsampling.
+  <p>
+    The type of &ldquo;brute-force&rdquo; search over all possible offsets in a range works
+    well for small JPG files, where the offsets were generally under our search range (15
+    pixels). However, for the full-size plates, this strategy falls apart: the displacements
+    can be in the scale of hundreds of pixels, and the channels are much higher resolution
+    than the JPGs. Since our method searches a box over the range, it is quadratic in the
+    range which makes this even harder.
+  </p>
+
+  <p>
+    This computational problem can be eased using image pyramids, which allow a much smaller
+    search space. We first shrink every single channel in half (across both dimensions)
+    repeatedly until it hits some floor (I chose 64 pixels on a side). We can then run a
+    search over this smaller image, since the scale has been reduced by so much (a small
+    search covers a large part of the image), find &amp; choose the best alignment, and then
+    upsample it appropriately into the original image. On each upsampling level, we run a
+    tiny search of 2 pixels in every single direction to catch any upsampling error, since
+    the offset we find at any level has to be a whole number of pixels, while the true
+    offset at that scale usually isn't. Doubling a rounded estimate doubles its error along
+    with it, and that compounds at every level on the way back up. The small search corrects
+    the estimate before the error has a chance to grow.
+  </p>
+
+  <p>
+    For downsampling, it is possible to do just naive downsampling where you just take every
+    second pixel across the dimensions, but I also applied a Gaussian blur to reduce
+    aliasing, since I would imagine very fine detail would get erronously mixed together if
+    you just did the naive method.
+  </p>
+
+  <p>
+    I also found it very important to use NCC over L2 here, for some reason. One guess that I
+    have is that the downsampling process sort of blurs away more fine detail, and so a lot
+    of what the L2 difference would capture would not actually be fine detailed differences,
+    but instead difference in brightness across channels. NCC is designed to fix this issue
+    by subtracting the mean and normalizing the image, so it tracks the difference in actual
+    details / features more well than L2 could.
   </p>
 
   <table>
-    <caption class="todo">Worked example: red vs. blue on cathedral, three levels.</caption>
+    <caption>Image pyramid example: aligning red and blue on cathedral, with depth 2.</caption>
     <thead>
       <tr><th>Level</th><th>Image size</th><th>Step</th><th>Offset (x,&nbsp;y)</th></tr>
     </thead>
@@ -142,21 +231,13 @@
     </tbody>
   </table>
 
-  <h2>Results: single-scale</h2>
-  <p class="todo">
-    Exhaustive search on the low-resolution JPEGs. Note the runtime and the window used.
+  <h2>Results: single-scale alignment</h2>
+  <p>
+    These three easier images can be solved with simple search, searching &plusmn;15 across
+    both dimensions and finding the best NCC on the cropped part (inner 70%). Runtime is well
+    under a second.
   </p>
 
-  <table>
-    <thead>
-      <tr><th>Image</th><th>Green (x,&nbsp;y)</th><th>Red (x,&nbsp;y)</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>cathedral</td><td class="num">(2, 5)</td><td class="num">(3, 12)</td></tr>
-      <tr><td>monastery</td><td class="num">(2, &minus;3)</td><td class="num">(2, 3)</td></tr>
-      <tr><td>tobolsk</td><td class="num">(3, 3)</td><td class="num">(3, 6)</td></tr>
-    </tbody>
-  </table>
 
   <div class="grid">
     <figure>
@@ -173,33 +254,14 @@
     </figure>
   </div>
 
-  <h2>Results: pyramid on the full-size plates</h2>
-  <p class="todo">
-    All fourteen provided images. Note the runtime per image and how it compares to
-    single-scale at full resolution.
+  <h2>Results: multi-scale pyramid alignment</h2>
+  <p>
+    These results are on the full set of all 14 images, using the image pyramid method
+    described earlier. The depth is adaptive to the image size; the algorithm will recurse
+    until the size reaches some threshold. The runtime is around 4 seconds per image, which
+    is well under the 1-minute quota per image.
   </p>
 
-  <table>
-    <thead>
-      <tr><th>Image</th><th>Green (x,&nbsp;y)</th><th>Red (x,&nbsp;y)</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>cathedral</td><td class="num">(2, 5)</td><td class="num">(3, 12)</td></tr>
-      <tr><td>church</td><td class="num">(4, 25)</td><td class="num">(&minus;4, 58)</td></tr>
-      <tr><td>emir</td><td class="num">(24, 49)</td><td class="num">(41, 106)</td></tr>
-      <tr><td>harvesters</td><td class="num">(17, 60)</td><td class="num">(14, 124)</td></tr>
-      <tr><td>icon</td><td class="num">(17, 41)</td><td class="num">(23, 89)</td></tr>
-      <tr><td>ilemselga</td><td class="num">(7, 40)</td><td class="num">(11, 130)</td></tr>
-      <tr><td>melons</td><td class="num">(10, 81)</td><td class="num">(14, 178)</td></tr>
-      <tr><td>monastery</td><td class="num">(2, &minus;3)</td><td class="num">(2, 3)</td></tr>
-      <tr><td>religous_painting</td><td class="num">(3, 28)</td><td class="num">(7, 68)</td></tr>
-      <tr><td>self_portrait</td><td class="num">(29, 79)</td><td class="num">(37, 176)</td></tr>
-      <tr><td>siren</td><td class="num">(&minus;6, 49)</td><td class="num">(&minus;25, 96)</td></tr>
-      <tr><td>three_generations</td><td class="num">(14, 52)</td><td class="num">(11, 111)</td></tr>
-      <tr><td>tobolsk</td><td class="num">(3, 3)</td><td class="num">(3, 6)</td></tr>
-      <tr><td>wharf</td><td class="num">(&minus;7, 15)</td><td class="num">(&minus;16, 82)</td></tr>
-    </tbody>
-  </table>
 
   <div class="gallery">
     <figure><img src="../assets/proj1/cathedral.jpg" alt="Cathedral"><figcaption>cathedral<span class="off">G (2, 5) &middot; R (3, 12)</span></figcaption></figure>
@@ -218,27 +280,18 @@
     <figure><img src="../assets/proj1/wharf.jpg" alt="Wharf"><figcaption>wharf<span class="off">G (&minus;7, 15) &middot; R (&minus;16, 82)</span></figcaption></figure>
   </div>
 
-  <h2>Results: my own selections</h2>
-  <p class="todo">
-    Three plates chosen from the Library of Congress collection. Say why you picked
-    them and link back to their catalogue pages.
+  <h2>Results: image pyramids on my own selection</h2>
+  <p>
+    I chose 3 more additional pictures from this same collection, from the Library of
+    Congress: a painting, a river landscape, and flowers. I run this algorithm on these as
+    well with no other adjustments.
   </p>
 
-  <table>
-    <thead>
-      <tr><th>Image</th><th>Green (x,&nbsp;y)</th><th>Red (x,&nbsp;y)</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>napoleon</td><td class="num">(5, 63)</td><td class="num">(&minus;2, 133)</td></tr>
-      <tr><td>ordezh_river</td><td class="num">(&minus;1, 39)</td><td class="num">(&minus;7, 151)</td></tr>
-      <tr><td>peonies</td><td class="num">(3, 51)</td><td class="num">(&minus;6, 104)</td></tr>
-    </tbody>
-  </table>
 
   <div class="grid">
     <figure>
       <img src="../assets/proj1/napoleon.jpg" alt="Portrait of Napoleon">
-      <figcaption class="todo">napoleon &mdash; the diagonal marks are scratches on the original plate.<span class="off">G (5, 63) &middot; R (&minus;2, 133)</span></figcaption>
+      <figcaption>napoleon: the lines here are an artifact of the original plates, not an alignment error.<span class="off">G (5, 63) &middot; R (&minus;2, 133)</span></figcaption>
     </figure>
     <figure>
       <img src="../assets/proj1/ordezh_river.jpg" alt="Ordezh river">
@@ -250,38 +303,52 @@
     </figure>
   </div>
 
-  <h2>The hard case: Emir of Bukhara</h2>
-  <p class="todo">
-    What went wrong: the emir's robe is bright blue, so it is bright in the blue plate and
-    dark in the red one. Correlating raw intensities can't match content whose brightness
-    is inverted &mdash; NCC scored &minus;0.23 on his red channel against &minus;0.63 or better on
-    every other plate.
+  <h2>Emir Image</h2>
+  <p>
+    The one plate that did not easily align with the algorithm that I discussed above was
+    this picture of the Emir; all other images worked. Even after trying a variety of
+    hyperparameters, it was off by a lot.
   </p>
 
-  <div class="grid">
+  <p>
+    I suspect the reason might be that his robe is a particular shade of blue that is so
+    vivid that it comes off as bright on a blue plate and dark on the red plate; thus, at
+    perfect alignment, they would not share the maximum correlation / alignment score.
+  </p>
+
+  <div class="grid pair">
     <figure>
       <img src="../assets/proj1/emir_bad.jpg" alt="Emir, misaligned">
-      <figcaption class="todo">Aligning red directly to blue.<span class="off">G (24, 49) &middot; R (&minus;482, 400)</span></figcaption>
+      <figcaption>Aligning red directly with blue<span class="off">G (24, 49) &middot; R (&minus;482, 400)</span></figcaption>
     </figure>
     <figure>
       <img src="../assets/proj1/emir.jpg" alt="Emir, aligned">
-      <figcaption class="todo">Aligning red to the already-aligned green.<span class="off">G (24, 49) &middot; R (41, 106)</span></figcaption>
+      <figcaption>Aligning red to the already-aligned green<span class="off">G (24, 49) &middot; R (41, 106)</span></figcaption>
     </figure>
   </div>
 
-  <p class="todo">
-    The fix and why it works: green sits between red and blue in the spectrum, so the red
-    and green plates resemble each other far more. Since the green channel has already been
-    moved into blue's frame, anything aligned to it is aligned to blue too.
+  <p>
+    The fix I came up with was changing the channel that red was aligned with. It was easy to
+    get green to align with the blue channel, as it's closer to blue in the spectrum than red
+    is, and thus the green and blue channels look more similar than red and blue. So first,
+    green is aligned with blue, and then red is aligned not with blue, but with the
+    already-aligned green; this will ideally align the red with the blue.
   </p>
 
   <h2>Implementation notes</h2>
-  <p class="todo">
-    Hyperparameters, runtime, what you'd do differently. Anything you tried that didn't work.
+  <p>
+    We used the same hyperparameters for alignment for every single image: we trimmed 15% off
+    the border just for scoring, searched a 15x15 grid at the deepest pyramid level, refined 2
+    pixels in each direction during every upsample, and recursed downwards to around
+    64-pixel images.
   </p>
 
-  <h2>What I learned</h2>
-  <p class="todo">Takeaways, surprises, and what I'd try next.</p>
+  <p>
+    The runtime was well under a minute; it was about 4 seconds per plate. The comparison is
+    the most expensive part of the alignment, but this was well-reduced in the pyramid methods
+    by making the processed image very small in comparison to the complete image.
+  </p>
+
 
   <footer>
     <p>Deepinder Mann &middot; CS180: Intro to Computer Vision and Computational Photography &middot; Fall 2026</p>
