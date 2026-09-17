@@ -11,10 +11,16 @@
   /* This write-up carries wide tables and an 18-image gallery, so it needs more
      room than the 42rem the shared sheet uses for prose-only pages. */
   .wrap { max-width: 64rem; }
-  /* Keep running text at a comfortable measure even though the page is wider,
-     and centre that column so it sits under the middle of the images rather
-     than hugging the left edge. Text itself stays left-aligned. */
-  .wrap > p, .wrap > h2, .wrap > h3, table, caption { max-width: 42rem; margin-inline: auto; }
+  /* One centred column for everything textual - including the h1 and the back
+     link, which otherwise stay pinned to the wrap's left edge and leave the page
+     looking ragged. Images keep the full 64rem and bleed slightly wider. */
+  .wrap > .back,
+  .wrap > h1,
+  .wrap > p,
+  .wrap > h2,
+  .wrap > h3,
+  table, caption { max-width: 56rem; margin-inline: auto; }
+  .wrap > .back { display: block; }
   table {
     width: 100%;
     border-collapse: collapse;
@@ -97,9 +103,9 @@
 
   <h2>Overview</h2>
   <p>
-    In 1907, a series of photographs of the Russian empire were taken, by Sergey Prokudin-Gorsky. These were before
+    In 1907, a series of photographs of the Russian empire was taken, by Sergey Prokudin-Gorsky. These were before
     color film became practical; his method was to shoot every single scene three times in
-    very quick succession into three different-colored filters: red, green, and blue. He
+    very quick succession through three different-colored filters: red, green, and blue. He
     recorded them all onto one glass plate. However, since he never could print them
     himself, they ended up in the Library of Congress until later being digitized.
   </p>
@@ -107,8 +113,8 @@
   <p>
     The core problem with these images is that you cannot simply stack them on top of each
     other to get the original image. The alignment is not perfect due to small perturbations
-    in the camera, so all 3 channels were offset of each other from just a few pixels to
-    hundreds of pixels. The goal of this project is to fine these offsets and optimally
+    in the camera, so all 3 channels were offset from each other from just a few pixels to
+    hundreds of pixels. The goal of this project is to find these offsets and optimally
     stack the channels into a single color image.
   </p>
 
@@ -119,7 +125,7 @@
     </figure>
     <figure>
       <img src="../assets/proj1/cathedral.jpg" alt="Cathedral, aligned color composite">
-      <figcaption class="todo">The same plate after alignment.</figcaption>
+      <figcaption>The same plate after alignment.</figcaption>
     </figure>
   </div>
 
@@ -143,7 +149,7 @@
     typical: you take the error between two corresponding pixels, square it, and sum this
     over the entire image. NCC (normalized cross-correlation) first subtracts the mean from every
     single image, normalizes the image to unit length (treat it like a vector here) and
-    then takes their dot product (treat it like a vector here as well). NCC generally ignores
+    then takes their dot product. NCC generally ignores
     the overall brightness (ignores magnitude) and instead looks at the actual
     &ldquo;directional&rdquo; discrepancy. I found using NCC to be an important choice for
     the later image pyramid alignments.
@@ -206,7 +212,7 @@
   <p>
     For downsampling, it is possible to do just naive downsampling where you just take every
     second pixel across the dimensions, but I also applied a Gaussian blur to reduce
-    aliasing, since I would imagine very fine detail would get erronously mixed together if
+    aliasing, since I would imagine very fine detail would get erroneously mixed together if
     you just did the naive method.
   </p>
 
@@ -259,7 +265,7 @@
     These results are on the full set of all 14 images, using the image pyramid method
     described earlier. The depth is adaptive to the image size; the algorithm will recurse
     until the size reaches some threshold. The runtime is around 4 seconds per image, which
-    is well under the 1-minute quota per image.
+    is well under the 1-minute limit per image.
   </p>
 
 
@@ -282,8 +288,8 @@
 
   <h2>Results: image pyramids on my own selection</h2>
   <p>
-    I chose 3 more additional pictures from this same collection, from the Library of
-    Congress: a painting, a river landscape, and flowers. I run this algorithm on these as
+    I chose 3 more pictures from this same collection, from the Library of
+    Congress: a painting, a river landscape, and flowers. I ran this algorithm on these as
     well with no other adjustments.
   </p>
 
@@ -291,7 +297,7 @@
   <div class="grid">
     <figure>
       <img src="../assets/proj1/napoleon.jpg" alt="Portrait of Napoleon">
-      <figcaption>napoleon: the lines here are an artifact of the original plates, not an alignment error.<span class="off">G (5, 63) &middot; R (&minus;2, 133)</span></figcaption>
+      <figcaption>napoleon: the lines here are an artifact of the original plate, not an alignment error.<span class="off">G (5, 63) &middot; R (&minus;2, 133)</span></figcaption>
     </figure>
     <figure>
       <img src="../assets/proj1/ordezh_river.jpg" alt="Ordezh river">
@@ -338,7 +344,7 @@
   <h2>Implementation notes</h2>
   <p>
     We used the same hyperparameters for alignment for every single image: we trimmed 15% off
-    the border just for scoring, searched a 15x15 grid at the deepest pyramid level, refined 2
+    the border just for scoring, searched a 31x31 grid at the deepest pyramid level, refined 2
     pixels in each direction during every upsample, and recursed downwards to around
     64-pixel images.
   </p>
