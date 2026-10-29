@@ -3,8 +3,115 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Project 4 — Project 4 | CS180</title>
+<title>Project 4 — Image Warping and Mosaicing | CS180</title>
 <link rel="stylesheet" href="../assets/css/style.css?v=2">
+<style>
+  .wrap { max-width: 64rem; }
+  .wrap > .back,
+  .wrap > .meta,
+  .wrap > h1,
+  .wrap > p,
+  .wrap > h2,
+  .wrap > h3,
+  .wrap > pre,
+  .wrap > ul,
+  .wrap > nav,
+  table { max-width: 56rem; margin-inline: auto; }
+  .wrap > .back { display: block; }
+
+  /* Jump links to each part */
+  .toc { font-size: 0.9rem; margin-bottom: 1rem; }
+  .toc a { margin-right: 1.25rem; }
+
+  /* Divider that opens each part */
+  .part {
+    max-width: 56rem;
+    margin: 4.5rem auto 1rem;
+    padding: 1.5rem 0 1.25rem;
+    border-top: 3px solid var(--fg);
+    border-bottom: 1px solid var(--rule);
+  }
+  .part .meta { margin: 0; }
+  .part h2 { font-size: 1.5rem; margin: 0.2rem 0 0; }
+
+  pre {
+    overflow-x: auto;
+    background: var(--hover);
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    padding: 0.85rem 1rem;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    margin: 1.25rem auto 1.5rem;
+  }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  pre.todo { white-space: pre-wrap; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    margin: 1.25rem auto 1.75rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.45rem 0.6rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  th {
+    font-size: 0.8rem;
+    letter-spacing: 0.03em;
+    font-variant: small-caps;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  td.num { font-variant-numeric: tabular-nums; }
+
+  /* Fixed-column image grids; .grid from style.css only does one row */
+  .gallery {
+    display: grid;
+    grid-template-columns: repeat(var(--cols, 3), 1fr);
+    gap: 1rem;
+    margin: 1.5rem auto 1.25rem;
+  }
+  .gallery > figure { margin: 0; min-width: 0; }
+  .c2 { --cols: 2; max-width: 48rem; }
+  .c3 { --cols: 3; }
+  .c4 { --cols: 4; }
+  .single { max-width: 32rem; --cols: 1; }
+  .gallery .placeholder {
+    flex-direction: column;
+    padding: 0.5rem;
+    text-align: center;
+    line-height: 1.35;
+    font-size: 0.75rem;
+  }
+
+  /* Wide panorama results */
+  .pano { max-width: 64rem; --cols: 1; }
+  .pano .placeholder { aspect-ratio: 5 / 2; }
+
+  /* Suggested filename under a placeholder label */
+  .file {
+    display: block;
+    margin-top: 0.25rem;
+    font-style: normal;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.7rem;
+  }
+
+  @media (max-width: 34rem) {
+    .gallery { --cols: 2; }
+    .single, .pano { --cols: 1; }
+  }
+  /* Side-by-side correspondence plots saved as one figure */
+  .fig { max-width: 56rem; margin: 1.5rem auto; }
+  .fig .placeholder { aspect-ratio: 7 / 4; }
+
+  /* Small crops scaled up without smoothing */
+  .pixel { max-width: 32rem; }
+  .pixel img { image-rendering: pixelated; }
+</style>
 </head>
 <body>
 <div class="wrap">
@@ -12,42 +119,460 @@
   <a class="back" href="../index.html">&larr; All projects</a>
 
   <p class="meta">CS180 &middot; Project 4</p>
-  <h1>Project 4</h1>
-  <p class="subtitle">One-line summary of what this project does.</p>
+  <h1>Image Warping and Mosaicing</h1>
+  <p class="subtitle">Producing homographies, rectifying flat images, and blending photos</p>
+
+  <nav class="toc">
+    <a href="#part-a">Part A</a>
+    <a href="#a1">A.1</a>
+    <a href="#a2">A.2</a>
+    <a href="#a3">A.3</a>
+    <a href="#a4">A.4</a>
+    <a href="#part-b">Part B</a>
+  </nav>
 
   <h2>Overview</h2>
-  <p class="todo">Brief description of the problem and approach.</p>
+  <p>
+    A homography is a general class of transformations between images; it models something broader than an affine transform called a projective transformation. This project is about finding homographies between two images (photographs in our case) taken from the same position by simply rotating the camera, which is an operation that relates images homographically. In this part (Part A) I click on points by hand to set shared references and solve for the homography between the two images. I then use it to rectify flat objects so that they look like they&rsquo;re being viewed head-on, or to warp overlapping photos (photos with different rotations but shared references) to blend them into a mosaic.
+  </p>
 
-  <h2>Approach</h2>
-  <p class="todo">Write-up goes here.</p>
 
-  <div class="grid">
+  <!-- ============================== PART A ============================== -->
+
+  <header class="part" id="part-a">
+    <p class="meta">Part A</p>
+    <h2>Image Warping and Mosaicing</h2>
+  </header>
+
+  <p>
+    All images here are resized to 1000 px wide for simplicity and to make my algorithms faster.
+  </p>
+
+  <h2 id="a1">A.1: Shoot the Pictures</h2>
+  <p>
+    For Part A, I shot three sets, each of 3 photos. For each set I stayed in a single spot and only rotated my phone (with exposure locked) so that the center of projection is fixed, and thus the pictures are homographically related. I made sure to take plenty of overlapping pictures so that I could choose ones with a good balance of scope (far spread) and reconstructability (as it&rsquo;s harder to make a homography with too little overlap).
+  </p>
+
+  <h3>Gateway</h3>
+  <div class="gallery c3">
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <img src="../assets/proj4/gateway_1.jpg" alt="Gateway atrium, left shot">
+      <figcaption>Left view</figcaption>
     </figure>
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <img src="../assets/proj4/gateway_2.jpg" alt="Gateway atrium, middle shot">
+      <figcaption>Middle view (reference)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/gateway_3.jpg" alt="Gateway atrium, right shot">
+      <figcaption>Right view</figcaption>
     </figure>
   </div>
 
-  <h2>Results</h2>
-  <p class="todo">Write-up goes here.</p>
-
-  <div class="grid">
+  <h3>Wheeler Hall</h3>
+  <div class="gallery c3">
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <img src="../assets/proj4/outdoor_1.jpg" alt="Wheeler Hall facade, left shot">
+      <figcaption>Left view</figcaption>
     </figure>
     <figure>
-      <div class="placeholder">image</div>
-      <figcaption>Caption.</figcaption>
+      <img src="../assets/proj4/outdoor_2.jpg" alt="Wheeler Hall facade, middle shot">
+      <figcaption>Middle view (reference)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/outdoor_3.jpg" alt="Wheeler Hall facade, right shot">
+      <figcaption>Right view</figcaption>
     </figure>
   </div>
 
-  <h2>What I learned</h2>
-  <p class="todo">Takeaways, surprises, and what I'd try next.</p>
+  <h3>Architecture Studio (Wurster Hall)</h3>
+  <div class="gallery c3">
+    <figure>
+      <img src="../assets/proj4/studio_1.jpg" alt="Wurster Hall architecture studio, left shot">
+      <figcaption>Left view</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/studio_2.jpg" alt="Wurster Hall architecture studio, middle shot">
+      <figcaption>Middle view (reference)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/studio_3.jpg" alt="Wurster Hall architecture studio, right shot">
+      <figcaption>Right view</figcaption>
+    </figure>
+  </div>
+
+
+  <h2 id="a2">A.2: Recover Homographies</h2>
+  <p>
+    Homographies are formulated as transforming [x, y, 1] vectors into [x&prime;, y&prime;, 1] vectors with a linear transformation, which gives us a 3&times;3 matrix. However, since we don&rsquo;t care about the scaling, this gives us 8 effective degrees of freedom, which can be modeled as setting the bottom-right entry to 1. That gives us 8 unknowns; we can thus write a set of two equations as follows:
+  </p>
+  <pre><code>x' = (h11 x + h12 y + h13) / (h31 x + h32 y + 1)
+y' = (h21 x + h22 y + h23) / (h31 x + h32 y + 1)
+
+&rArr;  h11 x + h12 y + h13 &minus; h31 x x' &minus; h32 y x' = x'
+    h21 x + h22 y + h23 &minus; h31 x y' &minus; h32 y y' = y'</code></pre>
+  <p>
+    This is linear in h<sub>ij</sub> and can be represented as solving for a vector h in the following system:
+  </p>
+  <pre><code>[ x  y  1  0  0  0  &minus;x x'  &minus;y x' ]       [ x' ]
+[ 0  0  0  x  y  1  &minus;x y'  &minus;y y' ] h  =  [ y' ]
+
+h = [h11 h12 h13 h21 h22 h23 h31 h32]&#x1D40;</code></pre>
+  <p>
+    Each pair of points removes 2 degrees of freedom, so we can solve this exactly with 4 pairs, but this is noisy in practice. We instead click many more points (I chose 10) and solve this overdetermined system with least squares. For my mosaics I stitch 3 images together, so I use the middle one as a mutual reference for the left and right images.
+  </p>
+
+  <pre><code class="language-python">def computeH(im1, im2):
+    A = []
+    b = []
+    for (x1, y1), (x2, y2) in zip(im1, im2):
+        # setup da matrix
+        A.append([x1, y1, 1, 0, 0, 0, -x1 * x2, -y1 * x2])
+        b.append(x2)
+        A.append([0, 0, 0, x1, y1, 1, -x1 * y2, -y1 * y2])
+        b.append(y2)
+
+    A = np.array(A)
+    b = np.array(b)
+    sol, _, _, _ = np.linalg.lstsq(A, b)
+    sol = np.append(sol, 1)
+    return sol.reshape((3, 3)), A, b</code></pre>
+
+  <h3>Correspondences</h3>
+  <p>Matching numbers are the same feature in both images.</p>
+  <figure class="fig">
+    <img src="../assets/proj4/gateway_1_gateway_2_points.jpg" alt="Gateway left and middle shots with 10 numbered matching points">
+    <figcaption>Gateway, left view &rarr; middle view</figcaption>
+  </figure>
+  <figure class="fig">
+    <img src="../assets/proj4/gateway_3_gateway_2_points.jpg" alt="Gateway right and middle shots with 10 numbered matching points">
+    <figcaption>Gateway, right view &rarr; middle view</figcaption>
+  </figure>
+  <figure class="fig">
+    <img src="../assets/proj4/outdoor_1_outdoor_2_points.jpg" alt="Wheeler Hall left and middle shots with 10 numbered matching points">
+    <figcaption>Wheeler Hall, left view &rarr; middle view</figcaption>
+  </figure>
+  <figure class="fig">
+    <img src="../assets/proj4/outdoor_3_outdoor_2_points.jpg" alt="Wheeler Hall right and middle shots with 10 numbered matching points">
+    <figcaption>Wheeler Hall, right view &rarr; middle view</figcaption>
+  </figure>
+  <figure class="fig">
+    <img src="../assets/proj4/studio_1_studio_2_points.jpg" alt="Architecture studio left and middle shots with 10 numbered matching points">
+    <figcaption>Architecture Studio, left view &rarr; middle view</figcaption>
+  </figure>
+  <figure class="fig">
+    <img src="../assets/proj4/studio_3_studio_2_points.jpg" alt="Architecture studio right and middle shots with 10 numbered matching points">
+    <figcaption>Architecture Studio, right view &rarr; middle view</figcaption>
+  </figure>
+
+  <h3>System of equations (Gateway, left view &rarr; middle view)</h3>
+  <p>The first two correspondences (four of the 20 rows):</p>
+  <pre><code>A (first 4 rows)                                              b
+[ 522  444  1    0    0  0   -24012   -20424 ]   [  46 ]
+[   0    0  0  522  444  1  -215586  -183372 ]   [ 413 ]
+[ 915  892  1    0    0  0  -405345  -395156 ]   [ 443 ]
+[   0    0  0  915  892  1  -796965  -776932 ]   [ 871 ]
+  ...  16 more rows from the other 8 points</code></pre>
+
+  <h3>Recovered homographies</h3>
+  <pre><code>Gateway, left &rarr; middle                   Gateway, right &rarr; middle
+[[ 1.851      -0.002922   -897.8 ]      [[ 0.4989     -0.01073     513.9 ]
+ [ 0.5825      1.634      -430.6 ]       [-0.335       0.8492      111.7 ]
+ [ 8.424e-4    2.286e-5    1     ]]      [-4.841e-4   -1.859e-5    1     ]]</code></pre>
+
+
+  <h2 id="a3">A.3: Image Warping</h2>
+  <p>
+    Both warps I demonstrate in this part use inverse warping. I first send the source image&rsquo;s four corners through H to get the basic bounding box of the warped result, and build a grid of every pixel in that box. I then map the entire grid back into the source with the inverse transform (H<sup>&minus;1</sup>), read a color at every coordinate, and assign it to its respective place, leaving no holes in the output image.
+  </p>
+  <p>
+    My two warping methods differ just in how they sample the color from the source image. Nearest neighbor rounds the source location to the closest pixel (so just the closest integer pair in range). Bilinear takes the four pixels around it, weights each by how close it is, and takes the weighted average of their colors to get the final value.
+  </p>
+
+  <h3>Nearest neighbor</h3>
+  <pre><code class="language-python">def warpImageNearestNeighbor(im, H):
+    h, w = im.shape[:2]
+    corners = np.array([[0, w-1, w-1, 0],
+    [0, 0, h-1, h-1],
+    [1, 1, 1, 1]])
+
+    c = H @ corners
+    cx = c[0] / c[2]
+    cy = c[1] / c[2]
+    xmin, xmax = int(np.floor(cx.min())),int(np.ceil(cx.max()))
+    ymin, ymax = int(np.floor(cy.min())),int(np.ceil(cy.max()))
+
+    cols = np.arange(xmin, xmax + 1)
+    rows = np.arange(ymin, ymax + 1)
+    xs, ys = np.meshgrid(cols, rows)
+    pts = np.array([xs.flatten(), ys.flatten(), np.ones(xs.size)])
+
+    src = np.linalg.inv(H) @ pts
+    sx = np.round(src[0]/src[2]).astype(int)
+    sy = np.round(src[1]/src[2]).astype(int)
+
+    inside = (sx &gt;= 0) &amp; (sx &lt; w) &amp; (sy &gt;= 0) &amp; (sy &lt; h)
+
+    out = np.zeros((xs.size, 3))
+    out[inside] = im[sy[inside], sx[inside]]
+
+    out = out.reshape(xs.shape[0], xs.shape[1], 3)
+    mask = inside.reshape(xs.shape)
+    return out, mask, (xmin, ymin)</code></pre>
+
+  <h3>Bilinear</h3>
+  <p>Same bounding box and inverse mapping as above; only the sampling changes:</p>
+  <pre><code class="language-python">def warpImageBilinear(im, H):
+    # ... same corners / bounding box / meshgrid / inverse mapping as above ...
+    sx = src[0] / src[2]
+    sy = src[1] / src[2]
+    inside = (sx &gt;= 0) &amp; (sx &lt;= w - 1) &amp; (sy &gt;= 0) &amp; (sy &lt;= h - 1)
+    x = sx[inside]
+    y = sy[inside]
+
+    x0 = np.floor(x).astype(int)
+    y0 = np.floor(y).astype(int)
+    x1 = np.minimum(x0 + 1, w - 1)
+    y1 = np.minimum(y0 + 1, h - 1)
+
+    # how far between the neighbors (0 to 1)
+    a = (x - x0)[:, None]
+    b = (y - y0)[:, None]
+
+    out = np.zeros((xs.size, 3))
+    out[inside] = (1 - a) * (1-b) * im[y0, x0] + (a) * (1 - b) * im[y0, x1] + (a) * b * im[y1, x1] + (1-a) * (b) * im[y1, x0]
+
+    out = out.reshape(xs.shape[0], xs.shape[1], 3)
+    mask = inside.reshape(xs.shape)
+    return out, mask, (xmin, ymin)</code></pre>
+
+  <h3>Rectification</h3>
+  <p>
+    Before mosaics, I tried basic image rectification using the methods I described above. Starting from a single source image, I click 4 corners of something known to be rectangular, map them to a rectangle that I define by hand, use that to define a homography, and warp the image.
+  </p>
+
+  <h3>Gateway wood wall</h3>
+  <p>Corners mapped to a 340 &times; 145 rectangle</p>
+  <div class="gallery c3">
+    <figure>
+      <img src="../assets/proj4/rect_window.jpg" alt="Gateway interior with a wood wall between two white columns, seen at an angle">
+      <figcaption>Original</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_window_nn.jpg" alt="Gateway wood wall rectified to face the camera, nearest neighbor">
+      <figcaption>Nearest neighbor</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_window_bil.jpg" alt="Gateway wood wall rectified to face the camera, bilinear">
+      <figcaption>Bilinear</figcaption>
+    </figure>
+  </div>
+
+  <h3>Wheeler Hall facade</h3>
+  <p>Corners mapped to a 300 &times; 42 rectangle</p>
+  <div class="gallery c3">
+    <figure>
+      <img src="../assets/proj4/rect_wheeler.jpg" alt="Wheeler Hall facade seen at an angle">
+      <figcaption>Original</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_wheeler_nn.jpg" alt="Wheeler Hall facade rectified so the doors are equal and evenly spaced, nearest neighbor">
+      <figcaption>Nearest neighbor</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_wheeler_bil.jpg" alt="Wheeler Hall facade rectified so the doors are equal and evenly spaced, bilinear">
+      <figcaption>Bilinear</figcaption>
+    </figure>
+  </div>
+
+  <h3>Gateway atrium TV</h3>
+  <p>Corners mapped to a 150 &times; 100 rectangle</p>
+  <div class="gallery c3">
+    <figure>
+      <img src="../assets/proj4/rect_lobby.jpg" alt="Gateway atrium with a TV at the bottom, seen at an angle">
+      <figcaption>Original</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_lobby_nn.jpg" alt="Gateway atrium rectified so the TV faces the camera, nearest neighbor">
+      <figcaption>Nearest neighbor</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_lobby_bil.jpg" alt="Gateway atrium rectified so the TV faces the camera, bilinear">
+      <figcaption>Bilinear</figcaption>
+    </figure>
+  </div>
+
+  <h3>Nearest neighbor vs. bilinear</h3>
+  <p>The same 150 &times; 150 crop from each warp, enlarged:</p>
+  <div class="gallery c2 pixel">
+    <figure>
+      <img src="../assets/proj4/rect_window_nn_crop.jpg" alt="Zoomed railing, nearest neighbor: jagged bars">
+      <figcaption>Nearest neighbor (gateway railing)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_window_bil_crop.jpg" alt="Zoomed railing, bilinear: smooth bars">
+      <figcaption>Bilinear (gateway railing)</figcaption>
+    </figure>
+  </div>
+  <div class="gallery c2 pixel">
+    <figure>
+      <img src="../assets/proj4/rect_lobby_nn_crop.jpg" alt="Zoomed ceiling edge, nearest neighbor: slightly jagged">
+      <figcaption>Nearest neighbor (atrium ceiling edge)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/rect_lobby_bil_crop.jpg" alt="Zoomed ceiling edge, bilinear: smooth">
+      <figcaption>Bilinear (atrium ceiling edge)</figcaption>
+    </figure>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>Image</th><th>Nearest neighbor</th><th>Bilinear</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Gateway wood wall</td><td class="num">0.12 s</td><td class="num">0.34 s</td></tr>
+      <tr><td>Wheeler Hall facade</td><td class="num">0.27 s</td><td class="num">0.58 s</td></tr>
+      <tr><td>Gateway atrium TV</td><td class="num">0.13 s</td><td class="num">0.36 s</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Nearest neighbor is cheaper as it only involves one rounding and one lookup per pixel. But it snaps every output pixel to a single source pixel, so straight edges come out jagged and stair-stepped, especially where the warp stretches the image. Bilinear does four lookups and a weighted sum per pixel, so it&rsquo;s slower, but edges and text come out smooth. The cost is slightly softer detail, since every output pixel is a blend.
+  </p>
+
+
+  <h2 id="a4">A.4: Blend the Images into a Mosaic</h2>
+  <p>
+    Mosaics are essentially repeating the above procedure with the center photo fixed and the two images on the sides warped to be consistent with the center image. Pasting the images on top of each other where they align can leave artifacts and hard seams where there are slight alignment differences. We instead feather them, with a weight equal to the distance transform of the mask (normalized to be max at 1). We then take a weighted average of the images where they overlap, so they blend into each other smoothly instead of switching at a hard line.
+  </p>
+
+  <pre><code class="language-python">def blend(images, masks):
+    w = np.zeros(masks[0].shape)
+    tot = np.zeros(images[0].shape)
+    for img, mask in zip(images, masks):
+        w0 = distance_transform_edt(mask)
+        w0 = w0 / w0.max()
+        tot = tot + w0[:, :, None] * img
+        w += w0
+    weights = np.maximum(w, 1e-8)
+    return tot / weights[:, :, None]
+
+def make_mosaic(name):
+    im1 = load_image(name + "_1.jpg")
+    im2 = load_image(name + "_2.jpg")
+    im3 = load_image(name + "_3.jpg")
+
+    p1, q1 = get_matching_points(im1, im2, 10, name + "_1_" + name + "_2")
+    p3, q3 = get_matching_points(im3, im2, 10, name + "_3_" + name + "_2")
+    H1 = computeH(p1, q1)[0]
+    H3 = computeH(p3, q3)[0]
+
+    w1, m1, o1 = warpImageBilinear(im1, H1)
+    w3, m3, o3 = warpImageBilinear(im3, H3)
+
+    imgs = [w1, im2, w3]
+    masks = [m1, np.ones(im2.shape[:2]), m3]
+    offsets = [o1, (0, 0), o3]
+
+    # just annoying size edge cases
+    xmin = min(ox for ox, oy in offsets)
+    ymin = min(oy for ox, oy in offsets)
+    xmax = max(ox + img.shape[1] for (ox, oy), img in zip(offsets, imgs))
+    ymax = max(oy + img.shape[0] for (ox, oy), img in zip(offsets, imgs))
+    height, width = ymax - ymin, xmax - xmin
+
+    canvas_imgs = []
+    canvas_masks = []
+    for img, mask, (ox1, oy1) in zip(imgs, masks, offsets):
+        r = oy1 - ymin
+        c = ox1 - xmin
+        h, w = img.shape[:2]
+
+        ci, cm = np.zeros((height, width, 3)), np.zeros((height, width))
+        ci[r:r + h, c:c + w] = img
+        cm[r:r + h, c:c + w] = mask
+        canvas_imgs.append(ci)
+        canvas_masks.append(cm)
+
+    result = blend(canvas_imgs, canvas_masks)
+    plt.imsave("out/" + name + "_mosaic.jpg", np.clip(result, 0, 1))</code></pre>
+
+  <h3>Mosaic 1: Gateway</h3>
+  <div class="gallery c3">
+    <figure>
+      <img src="../assets/proj4/gateway_1.jpg" alt="Gateway atrium, left shot">
+      <figcaption>Left view</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/gateway_2.jpg" alt="Gateway atrium, middle shot">
+      <figcaption>Middle view (reference)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/gateway_3.jpg" alt="Gateway atrium, right shot">
+      <figcaption>Right view</figcaption>
+    </figure>
+  </div>
+  <div class="gallery pano">
+    <figure>
+      <img src="../assets/proj4/gateway_mosaic.jpg" alt="Mosaic of the Gateway atrium: balconies, staircase and skylight">
+      <figcaption>Blended mosaic</figcaption>
+    </figure>
+  </div>
+
+  <h3>Mosaic 2: Wheeler Hall</h3>
+  <div class="gallery c3">
+    <figure>
+      <img src="../assets/proj4/outdoor_1.jpg" alt="Wheeler Hall facade, left shot">
+      <figcaption>Left view</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/outdoor_2.jpg" alt="Wheeler Hall facade, middle shot">
+      <figcaption>Middle view (reference)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/outdoor_3.jpg" alt="Wheeler Hall facade, right shot">
+      <figcaption>Right view</figcaption>
+    </figure>
+  </div>
+  <div class="gallery pano">
+    <figure>
+      <img src="../assets/proj4/outdoor_mosaic.jpg" alt="Mosaic of the full Wheeler Hall facade at dusk">
+      <figcaption>Blended mosaic</figcaption>
+    </figure>
+  </div>
+
+  <h3>Mosaic 3: Architecture Studio (Wurster Hall)</h3>
+  <div class="gallery c3">
+    <figure>
+      <img src="../assets/proj4/studio_1.jpg" alt="Wurster Hall architecture studio, left shot">
+      <figcaption>Left view</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/studio_2.jpg" alt="Wurster Hall architecture studio, middle shot">
+      <figcaption>Middle view (reference)</figcaption>
+    </figure>
+    <figure>
+      <img src="../assets/proj4/studio_3.jpg" alt="Wurster Hall architecture studio, right shot">
+      <figcaption>Right view</figcaption>
+    </figure>
+  </div>
+  <div class="gallery pano">
+    <figure>
+      <img src="../assets/proj4/studio_mosaic.jpg" alt="Mosaic of the Wurster Hall architecture studio with desks and windows">
+      <figcaption>Blended mosaic</figcaption>
+    </figure>
+  </div>
+
+
+
+  <!-- ============================== PART B ============================== -->
+
+  <header class="part" id="part-b">
+    <p class="meta">Part B</p>
+    <h2>Part B title</h2>
+  </header>
+
+  <p class="todo">Coming in Part B.</p>
 
   <footer>
     <p>Deepinder Mann &middot; CS180: Intro to Computer Vision and Computational Photography &middot; Fall 2026</p>
